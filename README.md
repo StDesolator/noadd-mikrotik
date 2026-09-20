@@ -94,6 +94,50 @@ The container runs from `/data`, so the database is stored there as
 `noadd.db` in the same volume; it is picked up automatically on upgrade
 (rename it to `noadd.sqlite3` to silence the startup warning).
 
+### MikroTik RouterOS (ARM64)
+
+This fork publishes a single-platform `linux/arm64` image specifically for
+RouterOS Container. The `routeros-arm64` tag is a Docker distribution v2
+manifest, not an OCI image index, and the workflow also provides a Docker
+archive artifact that can be imported without registry access.
+
+The examples below keep the database and extracted root filesystem on external
+storage. Replace the paths and addresses to match the router.
+
+```routeros
+/interface/veth/add name=noadd address=192.168.89.5/24 gateway=192.168.89.1
+/interface/bridge/port/add bridge=Docker-Bridge interface=noadd
+/container/mounts/add list=NOADD src=/usb1/docker_configs/noadd dst=/data
+/container/envs/add list=NOADD_ENV key=NOADD_HTTP_ADDR value=0.0.0.0:8080
+/container/envs/add list=NOADD_ENV key=NOADD_MAX_INFLIGHT_QUERIES value=256
+/container/envs/add list=NOADD_ENV key=NOADD_RATE_LIMIT_QPS value=100
+/container/envs/add list=NOADD_ENV key=NOADD_RATE_LIMIT_BURST value=200
+```
+
+Import the Docker archive downloaded from the workflow artifact:
+
+```routeros
+/container/add file=usb1/images/noadd-mikrotik-routeros-arm64.tar interface=noadd root-dir=/usb1/container-tmp/docker/noadd mountlists=NOADD envlists=NOADD_ENV dns=1.1.1.1 hostname=noadd logging=yes start-on-boot=no memory-high=100663296 memory-max=201326592
+/container/start [find where interface=noadd]
+```
+
+Or pull the public image after configuring the GHCR registry:
+
+```routeros
+/container/config/set registry-url=https://ghcr.io tmpdir=/usb1/container-tmp layer-dir=/usb1/container-tmp/layer
+/container/add remote-image=stdesolator/noadd-mikrotik:routeros-arm64 interface=noadd root-dir=/usb1/container-tmp/docker/noadd mountlists=NOADD envlists=NOADD_ENV dns=1.1.1.1 hostname=noadd logging=yes start-on-boot=no memory-high=100663296 memory-max=201326592
+```
+
+Open `http://192.168.89.5:8080` for first-run setup. Test DNS without changing
+the router or DHCP configuration:
+
+```routeros
+:put [:resolve domain-name="example.com" server=192.168.89.5 server-port=53]
+```
+
+Keep the existing DNS service running until the new container has been tested,
+its filter update peak measured, and clients have been switched deliberately.
+
 ## Usage
 
 ```
