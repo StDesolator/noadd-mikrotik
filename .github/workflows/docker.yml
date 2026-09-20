@@ -71,7 +71,7 @@ jobs:
         shell: bash
         run: |
           media_type="$(docker buildx imagetools inspect \
-            --raw ghcr.io/${{ github.repository }}:routeros-arm64 \
+            --raw ghcr.io/stdesolator/noadd-mikrotik:routeros-arm64 \
             | jq -r '.mediaType')"
           test "${media_type}" = "application/vnd.docker.distribution.manifest.v2+json"
 
